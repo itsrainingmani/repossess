@@ -1,5 +1,5 @@
 [package]
-name = "reposses"
+name = "repossess"
 version = "0.1.0"
 authors = ["Manikandan Sundararajan <mani@hey.com>"]
 edition = "2018"
@@ -7,3 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+structopt = "0.3.20"
+ctrlc = "3.1.7"
+url = "2.2.0"
