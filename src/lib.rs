@@ -1,4 +1,3 @@
-use std::fmt;
 use structopt::StructOpt;
 use url::{Host, Url};
 
@@ -129,11 +128,31 @@ pub mod filehandle {
         })
     }
 
-    // pub fn download_repo(repo: &Repo) -> Result<(), &'static str> {
-    //     let download_url = match repo.repo_type {
-    //         RepoType::GitHub => {}
-    //         RepoType::GitLab => {}
-    //     }
-    //     Ok(())
-    // }
+    pub fn create_download_url(repo: &Repo) -> String {
+        match repo.repo_type {
+            RepoType::GitHub => {
+                format!(
+                    "{}/archive/{}.zip",
+                    repo.url.clone().into_string(),
+                    repo.branch
+                )
+            }
+            RepoType::GitLab => {
+                // https://gitlab.com/gitlab-org/gitaly/-/archive/master/gitaly-master.zip
+                format!(
+                    "{}/~/archive/{}/{}-{}.zip",
+                    repo.url.clone().into_string(),
+                    repo.branch,
+                    repo.user_info.repo_name,
+                    repo.branch
+                )
+            }
+        }
+    }
+
+    pub fn download_repo(repo: &Repo) -> Result<(), &'static str> {
+        let _download_url = create_download_url(&repo);
+        // println!("{}", download_url);
+        Ok(())
+    }
 }
