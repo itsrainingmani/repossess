@@ -1,3 +1,4 @@
+use std::fmt;
 use structopt::StructOpt;
 use url::{Host, Url};
 
@@ -20,8 +21,11 @@ mod tests {
 
     #[test]
     fn url_download_test() {
-        let git_url = String::from("https://github.com/rust-lang/rust");
-        let git_repo = filehandle::extract_repo_from_url(&git_url).unwrap();
+        let cli = Cli {
+            url: String::from("https://github.com/rust-lang/rust"),
+            branch: String::from("master"),
+        };
+        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
         println!("{:#?}", git_repo);
         assert_eq!(git_repo.repo_type, RepoType::GitHub);
     }
@@ -40,6 +44,9 @@ pub struct Cli {
     /// GitHub or GitLab repository URL
     #[structopt(short = "u", long)]
     pub url: String,
+
+    #[structopt(short = "b", long, default_value = "master")]
+    pub branch: String,
 }
 
 #[derive(Debug, PartialEq)]
@@ -53,6 +60,7 @@ pub struct Repo {
     pub url: Url,
     pub user_info: UserInfo,
     pub repo_type: RepoType,
+    pub branch: String,
 }
 
 #[derive(Debug)]
@@ -64,8 +72,8 @@ pub struct UserInfo {
 pub mod filehandle {
     use super::*;
 
-    pub fn extract_repo_from_url(url: &String) -> Result<Repo, &'static str> {
-        let parsed_url: Url = match Url::parse(&url) {
+    pub fn extract_repo_from_cli(cli: &Cli) -> Result<Repo, &'static str> {
+        let parsed_url: Url = match Url::parse(cli.url.trim_end_matches('/')) {
             Ok(p) => p,
             Err(_) => return Err("Could not parse URL"),
         };
@@ -80,6 +88,7 @@ pub mod filehandle {
                         url: parsed_url,
                         user_info,
                         repo_type: RepoType::GitHub,
+                        branch: cli.branch.clone(),
                     }
                 }
                 Host::Domain("gitlab.com") => {
@@ -88,6 +97,7 @@ pub mod filehandle {
                         url: parsed_url,
                         user_info,
                         repo_type: RepoType::GitLab,
+                        branch: cli.branch.clone(),
                     }
                 }
                 _ => {
@@ -111,11 +121,19 @@ pub mod filehandle {
         if url_path_segments.len() < 2 {
             return Err("The URL does not seem to be a valid repo URL");
         }
-        println!("{:#?}", url_path_segments);
+        // println!("{:#?}", url_path_segments);
 
         Ok(UserInfo {
             user_name: String::from(*url_path_segments.get(0).unwrap()),
             repo_name: String::from(*url_path_segments.get(1).unwrap()),
         })
     }
+
+    // pub fn download_repo(repo: &Repo) -> Result<(), &'static str> {
+    //     let download_url = match repo.repo_type {
+    //         RepoType::GitHub => {}
+    //         RepoType::GitLab => {}
+    //     }
+    //     Ok(())
+    // }
 }
