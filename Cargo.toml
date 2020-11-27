@@ -10,3 +10,4 @@ edition = "2018"
 structopt = "0.3.20"
 ctrlc = "3.1.7"
 url = "2.2.0"
+reqwest = {version = "0.10.9", features = ["blocking"]}
