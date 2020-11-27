@@ -4,82 +4,6 @@ use std::fs;
 use structopt::StructOpt;
 use url::{Host, Url};
 
-#[cfg(test)]
-mod tests {
-    use filehandle::{create_download_url, download_repo, extract_repo_info};
-
-    use super::*;
-
-    #[test]
-    fn simple_test_fn() {
-        println!("Henlo frens");
-    }
-
-    #[test]
-    fn url_parse_test() {
-        let git_url = Url::parse("https://github.com/rust-lang/rust").unwrap();
-        assert!(git_url.host() == Some(Host::Domain("github.com")));
-    }
-
-    #[test]
-    fn url_download_test() {
-        let cli = Cli {
-            url: String::from("https://github.com/rust-lang/rust"),
-            branch: String::from("master"),
-        };
-        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
-        println!("{:#?}", git_repo);
-        assert_eq!(git_repo.repo_type, RepoType::GitHub);
-    }
-
-    #[test]
-    fn url_malformed_git_url() {
-        let git_url = "https://github.com/rust-lang/";
-        let parsed_url: Url = Url::parse(git_url).unwrap();
-        println!("{:#?}", extract_repo_info(&parsed_url));
-    }
-
-    #[test]
-    fn download_url_github_test() {
-        let cli = Cli {
-            url: String::from("https://github.com/rust-lang/rust"),
-            branch: String::from("master"),
-        };
-        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
-        let download_url = create_download_url(&git_repo);
-
-        assert_eq!(
-            download_url,
-            String::from("https://github.com/rust-lang/rust/archive/master.zip")
-        )
-    }
-
-    #[test]
-    fn download_url_gitlab_test() {
-        let cli = Cli {
-            url: String::from("https://gitlab.com/rust-lang/rust"),
-            branch: String::from("master"),
-        };
-        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
-        let download_url = create_download_url(&git_repo);
-
-        assert_eq!(
-            download_url,
-            String::from("https://gitlab.com/rust-lang/rust/-/archive/master/rust-master.zip")
-        )
-    }
-
-    #[test]
-    fn file_download_test() {
-        let cli = Cli {
-            url: String::from("https://gitlab.com/rust-lang/rust"),
-            branch: String::from("master"),
-        };
-        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
-        download_repo(&git_repo).unwrap();
-    }
-}
-
 #[derive(Debug, StructOpt)]
 #[structopt(name = "RePossess", about = "Convert git repos into encoded images")]
 pub struct Cli {
@@ -196,7 +120,7 @@ pub mod filehandle {
         Ok(given_repo)
     }
 
-    pub fn extract_repo_info(parsed_url: &Url) -> Result<UserInfo, RepoError> {
+    fn extract_repo_info(parsed_url: &Url) -> Result<UserInfo, RepoError> {
         let url_path_segments = parsed_url
             .path()
             .split('/')
@@ -213,7 +137,7 @@ pub mod filehandle {
         })
     }
 
-    pub fn create_download_url(repo: &Repo) -> String {
+    fn create_download_url(repo: &Repo) -> String {
         match repo.repo_type {
             RepoType::GitHub => {
                 format!(
@@ -235,7 +159,7 @@ pub mod filehandle {
         }
     }
 
-    pub fn download_repo(repo: &Repo) -> Result<(), Box<dyn Error>> {
+    fn download_repo(repo: &Repo) -> Result<(), Box<dyn Error>> {
         let download_url = create_download_url(&repo);
         println!("{}", download_url);
         let response = match reqwest::blocking::get(&download_url)?.error_for_status() {
@@ -252,5 +176,87 @@ pub mod filehandle {
         fs::write("repo.zip", response_bytes)?;
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use filehandle::{create_download_url, download_repo, extract_repo_info};
+
+        use super::*;
+
+        #[test]
+        fn simple_test_fn() {
+            println!("Henlo frens");
+        }
+
+        #[test]
+        fn url_parse_test() {
+            let git_url = Url::parse("https://github.com/rust-lang/rust").unwrap();
+            assert!(git_url.host() == Some(Host::Domain("github.com")));
+        }
+
+        #[test]
+        fn url_download_test() {
+            let cli = Cli {
+                url: String::from("https://github.com/rust-lang/rust"),
+                branch: String::from("master"),
+            };
+            let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+            println!("{:#?}", git_repo);
+            assert_eq!(git_repo.repo_type, RepoType::GitHub);
+        }
+
+        #[test]
+        fn url_malformed_git_url() {
+            let git_url = "https://github.com/rust-lang/";
+            let parsed_url: Url = Url::parse(git_url).unwrap();
+            println!("{:#?}", extract_repo_info(&parsed_url));
+        }
+
+        #[test]
+        fn download_url_github_test() {
+            let cli = Cli {
+                url: String::from("https://github.com/rust-lang/rust"),
+                branch: String::from("master"),
+            };
+            let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+            let download_url = create_download_url(&git_repo);
+
+            assert_eq!(
+                download_url,
+                String::from("https://github.com/rust-lang/rust/archive/master.zip")
+            )
+        }
+
+        #[test]
+        fn download_url_gitlab_test() {
+            let cli = Cli {
+                url: String::from("https://gitlab.com/rust-lang/rust"),
+                branch: String::from("master"),
+            };
+            let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+            let download_url = create_download_url(&git_repo);
+
+            assert_eq!(
+                download_url,
+                String::from("https://gitlab.com/rust-lang/rust/-/archive/master/rust-master.zip")
+            )
+        }
+
+        #[test]
+        fn file_download_test() {
+            let cli = Cli {
+                url: String::from("https://gitlab.com/rust-lang/rust"),
+                branch: String::from("master"),
+            };
+            let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+            download_repo(&git_repo).unwrap();
+
+            assert_eq!(fs::metadata("repo.zip").unwrap().is_file(), true);
+            // std::thread::sleep(std::time::Duration::from_secs(5));
+
+            // Clean up download
+            fs::remove_file("repo.zip").unwrap();
+        }
     }
 }
