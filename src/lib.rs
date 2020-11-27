@@ -1,9 +1,13 @@
+use std::error::Error;
+use std::fmt::{self, Formatter};
+use std::fs::{self, File, Metadata};
+use std::io::copy;
 use structopt::StructOpt;
 use url::{Host, Url};
 
 #[cfg(test)]
 mod tests {
-    use filehandle::extract_repo_info;
+    use filehandle::{create_download_url, extract_repo_info};
 
     use super::*;
 
@@ -34,6 +38,36 @@ mod tests {
         let git_url = "https://github.com/rust-lang/";
         let parsed_url: Url = Url::parse(git_url).unwrap();
         println!("{:#?}", extract_repo_info(&parsed_url));
+    }
+
+    #[test]
+    fn download_url_github_test() {
+        let cli = Cli {
+            url: String::from("https://github.com/rust-lang/rust"),
+            branch: String::from("master"),
+        };
+        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+        let download_url = create_download_url(&git_repo);
+
+        assert_eq!(
+            download_url,
+            String::from("https://github.com/rust-lang/rust/archive/master.zip")
+        )
+    }
+
+    #[test]
+    fn download_url_gitlab_test() {
+        let cli = Cli {
+            url: String::from("https://gitlab.com/rust-lang/rust"),
+            branch: String::from("master"),
+        };
+        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+        let download_url = create_download_url(&git_repo);
+
+        assert_eq!(
+            download_url,
+            String::from("https://gitlab.com/rust-lang/rust/-/archive/master/rust-master.zip")
+        )
     }
 }
 
@@ -68,13 +102,55 @@ pub struct UserInfo {
     pub repo_name: String,
 }
 
+macro_rules! simple_enum_error {
+    ($($name: ident => $description: expr,)+) => {
+        /// Errors that can occur during parsing.
+        ///
+        /// This may be extended in the future so exhaustive matching is
+        /// discouraged with an unused variant.
+        #[allow(clippy::manual_non_exhaustive)] // introduced in 1.40, MSRV is 1.36
+        #[derive(PartialEq, Eq, Clone, Copy, Debug)]
+        pub enum RepoError {
+            $(
+                $name,
+            )+
+            /// Unused variant enable non-exhaustive matching
+            #[doc(hidden)]
+            __FutureProof,
+        }
+
+        impl fmt::Display for RepoError {
+            fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
+                match *self {
+                    $(
+                        RepoError::$name => fmt.write_str($description),
+                    )+
+                    RepoError::__FutureProof => {
+                        unreachable!("Don't abuse the FutureProof!");
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Error for RepoError {}
+
+simple_enum_error!(
+    URLParseError => "Could not parse URL",
+    NonGitURLError => "Please enter only GitHub or GitLab URLs",
+    InvalidURLError => "Please enter a valid URL",
+    InvalidRepoURLError => "The URL does not seem to be a valid repo URL",
+    FileDownloadError => "The Git Repo could not be downloaded",
+);
+
 pub mod filehandle {
     use super::*;
 
-    pub fn extract_repo_from_cli(cli: &Cli) -> Result<Repo, &'static str> {
+    pub fn extract_repo_from_cli(cli: &Cli) -> Result<Repo, RepoError> {
         let parsed_url: Url = match Url::parse(cli.url.trim_end_matches('/')) {
             Ok(p) => p,
-            Err(_) => return Err("Could not parse URL"),
+            Err(_) => return Err(RepoError::URLParseError),
         };
         // println!("{:#?}", url);
 
@@ -100,25 +176,25 @@ pub mod filehandle {
                     }
                 }
                 _ => {
-                    return Err("Please enter only GitHub or GitLab URLs");
+                    return Err(RepoError::NonGitURLError);
                 }
             },
             None => {
-                return Err("Please enter a valid URL");
+                return Err(RepoError::InvalidURLError);
             }
         };
 
         Ok(given_repo)
     }
 
-    pub fn extract_repo_info(parsed_url: &Url) -> Result<UserInfo, &'static str> {
+    pub fn extract_repo_info(parsed_url: &Url) -> Result<UserInfo, RepoError> {
         let url_path_segments = parsed_url
             .path()
             .split('/')
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
         if url_path_segments.len() < 2 {
-            return Err("The URL does not seem to be a valid repo URL");
+            return Err(RepoError::InvalidRepoURL);
         }
         // println!("{:#?}", url_path_segments);
 
@@ -138,9 +214,9 @@ pub mod filehandle {
                 )
             }
             RepoType::GitLab => {
-                // https://gitlab.com/gitlab-org/gitaly/-/archive/master/gitaly-master.zip
+                // https://github.com/rust-lang/rust/archive/master.zip
                 format!(
-                    "{}/~/archive/{}/{}-{}.zip",
+                    "{}/-/archive/{}/{}-{}.zip",
                     repo.url.clone().into_string(),
                     repo.branch,
                     repo.user_info.repo_name,
@@ -150,9 +226,14 @@ pub mod filehandle {
         }
     }
 
-    pub fn download_repo(repo: &Repo) -> Result<(), &'static str> {
-        let _download_url = create_download_url(&repo);
-        // println!("{}", download_url);
+    pub fn download_repo(repo: &Repo) -> Result<(), Box<dyn Error>> {
+        let download_url = create_download_url(&repo);
+        println!("{}", download_url);
+        let response_bytes = reqwest::blocking::get(&download_url)?.bytes()?;
+
+        // Write to a file, if the file already exists, overwrite it
+        fs::write("repo.zip", response_bytes);
+
         Ok(())
     }
 }
