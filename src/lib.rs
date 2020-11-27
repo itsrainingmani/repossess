@@ -1,13 +1,12 @@
 use std::error::Error;
 use std::fmt::{self, Formatter};
-use std::fs::{self, File, Metadata};
-use std::io::copy;
+use std::fs;
 use structopt::StructOpt;
 use url::{Host, Url};
 
 #[cfg(test)]
 mod tests {
-    use filehandle::{create_download_url, extract_repo_info};
+    use filehandle::{create_download_url, download_repo, extract_repo_info};
 
     use super::*;
 
@@ -68,6 +67,16 @@ mod tests {
             download_url,
             String::from("https://gitlab.com/rust-lang/rust/-/archive/master/rust-master.zip")
         )
+    }
+
+    #[test]
+    fn file_download_test() {
+        let cli = Cli {
+            url: String::from("https://gitlab.com/rust-lang/rust"),
+            branch: String::from("master"),
+        };
+        let git_repo = filehandle::extract_repo_from_cli(&cli).unwrap();
+        download_repo(&git_repo).unwrap();
     }
 }
 
@@ -194,7 +203,7 @@ pub mod filehandle {
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
         if url_path_segments.len() < 2 {
-            return Err(RepoError::InvalidRepoURL);
+            return Err(RepoError::InvalidRepoURLError);
         }
         // println!("{:#?}", url_path_segments);
 
@@ -229,10 +238,18 @@ pub mod filehandle {
     pub fn download_repo(repo: &Repo) -> Result<(), Box<dyn Error>> {
         let download_url = create_download_url(&repo);
         println!("{}", download_url);
-        let response_bytes = reqwest::blocking::get(&download_url)?.bytes()?;
+        let response = match reqwest::blocking::get(&download_url)?.error_for_status() {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("ERROR {}", e.to_string());
+                return Err(Box::new(e));
+            }
+        };
+
+        let response_bytes = response.bytes()?;
 
         // Write to a file, if the file already exists, overwrite it
-        fs::write("repo.zip", response_bytes);
+        fs::write("repo.zip", response_bytes)?;
 
         Ok(())
     }
