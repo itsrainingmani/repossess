@@ -1,10 +1,11 @@
-use repossess::{Cli, filehandle};
+use repossess::{filehandle, Cli};
+use std::error::Error;
 use structopt::StructOpt;
 
-fn main() {
-    let cli = Cli::from_args();
+fn main() -> Result<(), Box<dyn Error>> {
+    let cli: Cli = Cli::from_args();
 
-    filehandle::download_file(&cli.url).unwrap_or_else(|err| {
-        eprintln!("Error: {}", err);
-    });
+    let repo = filehandle::extract_repo_from_cli(&cli)?;
+
+    Ok(())
 }
