@@ -71,10 +71,10 @@ impl Error for RepoError {}
 
 simple_enum_error!(
     URLParseError => "Could not parse URL",
-    NonGitURLError => "Please enter only GitHub or GitLab URLs",
-    InvalidURLError => "Please enter a valid URL",
-    InvalidRepoURLError => "The URL does not seem to be a valid repo URL",
-    FileDownloadError => "The Git Repo could not be downloaded",
+    NonGitURLError => "Only enter GitHub or GitLab URLs",
+    InvalidURLError => "E a valid URL",
+    InvalidRepoURLError => "URL does not seem to be a valid repo URL",
+    FileDownloadError => "Git Repo could not be downloaded",
 );
 
 pub mod filehandle {
