@@ -3,7 +3,7 @@ use std::error::Error;
 use structopt::StructOpt;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("RePossess CLI v0.1");
+    println!("RePossess CLI v0.1 - A safe way to archive Git Repos");
     let cli: Cli = Cli::from_args();
 
     let repo = filehandle::extract_repo_from_cli(&cli)?;
